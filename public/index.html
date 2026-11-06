@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#140f22">
+<title>逆ババ抜き</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🃏</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="conn" class="conn hidden">再接続中…</div>
+
+<!-- トップ -->
+<main id="top" class="screen">
+  <div class="hero">
+    <div class="hero-card"><div class="joker-face"><span class="jk-star">★</span><span class="jk-word">JOKER</span><span class="jk-star">★</span></div></div>
+    <h1>逆ババ抜き</h1>
+    <p class="tagline">最後まで<b>ジョーカー</b>を持っていた人の勝ち。</p>
+  </div>
+  <section class="panel">
+    <label class="field">
+      <span>なまえ</span>
+      <input id="nameInput" maxlength="12" placeholder="12文字まで" autocomplete="nickname">
+    </label>
+    <div id="invited" class="invited hidden"></div>
+    <button id="createBtn" class="btn gold big">部屋を作る</button>
+    <div class="or"><span>または</span></div>
+    <div class="joinrow">
+      <input id="codeInput" maxlength="4" placeholder="部屋コード" autocapitalize="characters" autocomplete="off" spellcheck="false">
+      <button id="joinBtn" class="btn">参加する</button>
+    </div>
+  </section>
+  <section class="rules">
+    <h2>ルール</h2>
+    <ol>
+      <li>53枚（ジョーカー1枚入り）を全員に配り、同じ数字のペアは捨てる。</li>
+      <li>手番の人は、次の人の手札から1枚引く。ペアができたら捨てる。</li>
+      <li>手札がなくなった人は<b>脱落</b>。早く上がるほど順位は下。</li>
+      <li>最後に残った、ジョーカーを持っている人が<b>優勝</b>！</li>
+    </ol>
+    <p class="note">ジョーカーを持っている人は隠したい、他の人は奪いたい。普通のババ抜きと駆け引きが逆になります。</p>
+  </section>
+</main>
+
+<!-- ロビー -->
+<main id="lobby" class="screen hidden"></main>
+
+<!-- 対戦 -->
+<main id="game" class="screen hidden">
+  <header class="gbar">
+    <div class="gcode" id="gCode"></div>
+    <div class="gstats" id="gStats"></div>
+    <button class="btn tiny ghost" id="logBtn">ログ</button>
+    <button class="btn tiny ghost" id="gLeave">退出</button>
+  </header>
+  <div class="status" id="status"></div>
+  <div class="timer" id="timer"><div class="timer-fill" id="timerFill"></div><span id="timerText"></span></div>
+  <div class="plates" id="plates"></div>
+  <section class="table">
+    <div class="stage-label" id="stageLabel"></div>
+    <div class="stage" id="stage"></div>
+    <div class="stage-actions" id="stageActions"></div>
+    <div class="popup" id="popup"></div>
+  </section>
+  <div class="emotes" id="emotes"></div>
+  <section class="myhand-wrap" id="myWrap">
+    <div class="myhand-head">
+      <span id="myLabel">あなたの手札</span>
+      <button class="btn tiny" id="shuffleBtn">混ぜる</button>
+    </div>
+    <div class="myhand" id="myHand"></div>
+  </section>
+  <aside class="log hidden" id="logPanel"><div class="log-head">ログ <button class="btn tiny ghost" id="logClose">閉じる</button></div><ul id="logList"></ul></aside>
+  <div class="result hidden" id="result"></div>
+</main>
+
+<div id="toasts" class="toasts"></div>
+<div id="fly" class="fly-layer"></div>
+<script src="app.js"></script>
+</body>
+</html>

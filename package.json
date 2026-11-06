@@ -1,0 +1,14 @@
+{
+  "name": "babanuki",
+  "version": "1.0.0",
+  "description": "逆ババ抜き：最後までジョーカーを持っていた人が勝ちのオンライン対戦（最大18人・NPC対応）",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}

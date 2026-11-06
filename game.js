@@ -13,11 +13,14 @@ function shuffle(a) {
   return a;
 }
 
-function makeDeck() {
+// 人数に応じたトランプの組数：2〜4人=1組、5〜8人=2組、9〜12人=3組…（4人ごとに1組）
+function deckCountFor(n) { return Math.max(1, Math.ceil(n / 4)); }
+
+function makeDeck(decks = 1) {
   const cards = [];
   let id = 0;
-  for (const s of SUITS) for (let r = 1; r <= 13; r++) cards.push({ id: id++, r, s });
-  cards.push({ id: id++, r: 0, s: 'j' }); // ジョーカー
+  for (let d = 0; d < decks; d++) for (const s of SUITS) for (let r = 1; r <= 13; r++) cards.push({ id: id++, r, s });
+  cards.push({ id: id++, r: 0, s: 'j' }); // ジョーカーは常に1枚
   return cards;
 }
 
@@ -43,6 +46,8 @@ function removePairs(hand) {
 class Game {
   // seats: [{ pid, name, npc: bool, owner: clientId|null }]
   constructor(seats) {
+    this.decks = deckCountFor(seats.length);
+    this.totalCards = this.decks * 52 + 1;
     this.seats = seats.map((s) => ({ ...s, hand: [], outOrder: 0 }));
     this.outCount = 0;
     this.discardCount = 0;
@@ -56,7 +61,7 @@ class Game {
   }
 
   deal() {
-    const deck = shuffle(makeDeck());
+    const deck = shuffle(makeDeck(this.decks));
     const n = this.seats.length;
     const start = crypto.randomInt(n);
     deck.forEach((c, i) => this.seats[(start + i) % n].hand.push(c));
@@ -152,4 +157,4 @@ class Game {
   }
 }
 
-module.exports = { Game, makeDeck, removePairs, shuffle };
+module.exports = { Game, makeDeck, removePairs, shuffle, deckCountFor };

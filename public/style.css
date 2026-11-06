@@ -331,3 +331,16 @@ input:focus { border-color: var(--gold); }
   .invite .code { font-size: 2rem; }
   .emotes button { width: 38px; height: 38px; font-size: 1.15rem; }
 }
+
+/* ---------- 席順・デッキ ---------- */
+.deckinfo { font-size: .82rem; color: var(--muted); margin: -4px 0 10px; }
+.deckinfo b { color: #fff3c4; }
+.deckinfo span { display: block; font-size: .72rem; opacity: .8; }
+.seatnote { font-size: .78rem; color: var(--muted); margin: -2px 0 10px; line-height: 1.6; }
+.seatnote b { color: var(--ink); }
+.seatrow .sno { font-family: 'Dela Gothic One', sans-serif; color: var(--gold); width: 1.8em; text-align: center; }
+.seatrow.free .nm { color: var(--muted); }
+.seatrow.mine { outline: 1px solid #3a7bd5; background: rgba(58,123,213,.15); }
+.mini-seg { display: flex; gap: 4px; }
+.mini-seg .btn:disabled { opacity: .55; }
+.mini-seg .btn.on:disabled { opacity: 1; }

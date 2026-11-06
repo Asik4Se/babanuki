@@ -156,6 +156,28 @@
     const H = S.isHost;
     const full = total >= max;
     let startNote = '';
+    const chooseMode = S.settings.seatMode === 'choose';
+    const seatN = Math.max(2, total);
+    let seatBox = '';
+    if (chooseMode) {
+      const bySeat = {};
+      for (const x of players) if (x.seat) bySeat[x.seat] = x;
+      const mineSeat = me.seat;
+      const rows = [];
+      for (let n = 1; n <= seatN; n++) {
+        const x = bySeat[n];
+        const isMe = x && x.pid === S.you;
+        rows.push(`<li class="seatrow ${isMe ? 'mine' : ''} ${x ? '' : 'free'}"><span class="sno">${n}</span>` +
+          (x ? `<span class="nm">${esc(x.name)}</span>${isMe ? '<button class="btn tiny ghost" data-act="unseat">外す</button>' : ''}`
+             : `<span class="nm">空き</span>${me.role === 'player' && n <= total ? `<button class="btn tiny" data-act="seat" data-n="${n}">${mineSeat ? 'ここに移る' : 'ここに座る'}</button>` : ''}`) +
+          '</li>');
+      }
+      seatBox = `<div class="box" style="margin-top:14px">
+        <h2>席順 <span class="count">${seatN}席</span></h2>
+        <p class="seatnote">番号順に回り、手番の人は<b>次の番号の人</b>から引きます（最後の席は1番から）。空いた席にはNPCと未選択の人がランダムに入ります。</p>
+        <ul class="mlist">${rows.join('')}</ul>
+      </div>`;
+    }
     if (total === 0) startNote = '全員観戦なので、NPC 2人の対戦になります';
     else if (total === 1) startNote = 'ひとりなので、NPCを1人入れて開始します';
 
@@ -167,8 +189,10 @@
         <button class="btn" data-act="copy">招待リンクをコピー</button>
       </div>
       <div class="lgrid">
+        <div>
         <div class="box">
           <h2>プレイヤー <span class="count">${total} / ${max}</span></h2>
+          <div class="deckinfo">トランプ <b>${S.decks}組</b>（${S.decks * 52}枚）＋ジョーカー1枚 <span>2〜4人=1組・5〜8人=2組・9〜12人=3組…</span></div>
           <ul class="mlist">
             ${players.map(memberRow).join('')}
             ${S.npcs.map((n) => `<li class="npc"><span class="nm">🤖 ${esc(n.name)}</span><span class="tag npc">NPC</span>${H ? `<button class="xbtn" data-act="rmnpc" data-pid="${esc(n.pid)}" title="外す">×</button>` : ''}</li>`).join('')}
@@ -181,6 +205,8 @@
             <button class="btn tiny" data-act="rmnpc" ${S.npcs.length ? '' : 'disabled'}>− NPC</button>
             <button class="btn tiny ghost" data-act="rmall" ${S.npcs.length ? '' : 'disabled'}>NPCを全員外す</button>
           </div>` : ''}
+        </div>
+        ${seatBox}
         </div>
         <div>
           <div class="box">
@@ -199,6 +225,12 @@
             <div class="setrow"><span>1手の持ち時間</span>
               <select data-act="turnTime" ${H ? '' : 'disabled'}>${S.turnTimes.map((t) => `<option value="${t}" ${t === S.settings.turnTime ? 'selected' : ''}>${t}秒</option>`).join('')}</select>
             </div>
+            <div class="setrow"><span>席順</span>
+              <div class="seg mini-seg">
+                <button class="btn tiny ${chooseMode ? '' : 'on'}" data-act="seatMode" data-v="random" ${H ? '' : 'disabled'}>ランダム</button>
+                <button class="btn tiny ${chooseMode ? 'on' : ''}" data-act="seatMode" data-v="choose" ${H ? '' : 'disabled'}>各自で選ぶ</button>
+              </div>
+            </div>
             <div class="setrow"><span>観戦者に全員の手札を見せる</span>
               <button class="switch ${S.settings.reveal ? 'on' : ''}" data-act="reveal" ${H ? '' : 'disabled'} aria-label="観戦者に手札を見せる"></button>
             </div>
@@ -212,7 +244,7 @@
       <section class="rules">
         <h2>ルール</h2>
         <ol>
-          <li>53枚（ジョーカー1枚入り）を配り、同じ数字のペアは捨てる。</li>
+          <li>人数に応じたトランプ（4人ごとに1組）＋ジョーカー1枚を配り、同じ数字のペアは捨てる。</li>
           <li>手番の人は次の人の手札から1枚引く。ペアができたら捨てる。</li>
           <li>手札がなくなった人は脱落。早く上がるほど順位は下。</li>
           <li>最後に残ったジョーカー持ちが優勝！</li>
@@ -237,6 +269,9 @@
     else if (act === 'role') send({ t: 'role', role: b.dataset.role });
     else if (act === 'reveal') send({ t: 'settings', reveal: !S.settings.reveal });
     else if (act === 'start') send({ t: 'start' });
+    else if (act === 'seatMode') send({ t: 'settings', seatMode: b.dataset.v });
+    else if (act === 'seat') send({ t: 'seat', n: +b.dataset.n });
+    else if (act === 'unseat') send({ t: 'seat', n: null });
   });
   $('#lobby').addEventListener('change', (e) => {
     if (e.target.dataset.act === 'turnTime') send({ t: 'settings', turnTime: +e.target.value });

@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { handleUpgrade } = require('./ws');
-const { Game } = require('./game');
+const { Game, deckCountFor } = require('./game');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -37,7 +37,7 @@ function newCode() {
 function newRoom() {
   const room = {
     code: newCode(), hostId: null, members: new Map(), npcs: [],
-    settings: { turnTime: 20, reveal: true },
+    settings: { turnTime: 20, reveal: true, seatMode: 'random' },
     state: 'lobby', game: null, log: [], timers: [], hover: null,
     deadline: 0, pidSeq: 0, emptySince: 0,
   };
@@ -54,6 +54,16 @@ function playerCount(room) {
   let n = room.npcs.length;
   for (const m of room.members.values()) if (m.role === 'player') n++;
   return n;
+}
+
+// 席の希望を整理（観戦者・人数を超えた席・重複は外す）
+function normalizeSeats(room) {
+  const total = playerCount(room);
+  const used = new Set();
+  for (const m of room.members.values()) {
+    if (m.role !== 'player' || !m.seat || m.seat > total || used.has(m.seat)) m.seat = null;
+    if (m.seat) used.add(m.seat);
+  }
 }
 
 function connectedMembers(room) { return [...room.members.values()].filter((m) => m.connected); }
@@ -129,8 +139,9 @@ function viewFor(room, me) {
     host: host ? host.pid : null, isHost: room.hostId === me.clientId,
     state: room.state, settings: room.settings, maxPlayers: MAX_PLAYERS,
     members: [...room.members.values()].map((m) => ({
-      pid: m.pid, name: m.name, role: m.role, connected: m.connected, host: m.clientId === room.hostId,
+      pid: m.pid, name: m.name, role: m.role, connected: m.connected, host: m.clientId === room.hostId, seat: m.seat || null,
     })),
+    decks: deckCountFor(Math.max(2, playerCount(room))),
     npcs: room.npcs.map((n) => ({ pid: n.pid, name: n.name })),
     log: room.log.slice(-40),
     turnTimes: TURN_TIMES, emotes: EMOTES,
@@ -161,6 +172,7 @@ function viewFor(room, me) {
 }
 
 function broadcastState(room) {
+  if (room.state === 'lobby') normalizeSeats(room);
   for (const m of room.members.values()) if (m.connected) send(m.conn, viewFor(room, m));
 }
 
@@ -181,18 +193,28 @@ function later(room, ms, fn) { room.timers.push(setTimeout(fn, ms)); }
 function rnd(a, b) { return a + crypto.randomInt(b - a + 1); }
 
 function startGame(room) {
-  const seats = [];
+  normalizeSeats(room);
+  const pool = [];
+  const fixed = [];
   for (const m of room.members.values()) {
-    if (m.role === 'player') seats.push({ pid: m.pid, name: m.name, npc: false, owner: m.clientId });
+    if (m.role !== 'player') continue;
+    const s = { pid: m.pid, name: m.name, npc: false, owner: m.clientId };
+    if (room.settings.seatMode === 'choose' && m.seat) fixed.push([m.seat, s]); else pool.push(s);
   }
-  while (seats.length + room.npcs.length < 2) addNpc(room);
-  for (const n of room.npcs) seats.push({ pid: n.pid, name: n.name, npc: true, owner: null });
-  for (let i = seats.length - 1; i > 0; i--) { const j = crypto.randomInt(i + 1); [seats[i], seats[j]] = [seats[j], seats[i]]; }
+  while (pool.length + fixed.length + room.npcs.length < 2) addNpc(room);
+  for (const n of room.npcs) pool.push({ pid: n.pid, name: n.name, npc: true, owner: null });
+  // 選んだ人は希望の席へ、残り（NPC・未選択の人）は空いた席にランダムで
+  for (let i = pool.length - 1; i > 0; i--) { const j = crypto.randomInt(i + 1); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  const total = pool.length + fixed.length;
+  const seats = new Array(total).fill(null);
+  for (const [n, s] of fixed) seats[n - 1] = s;
+  for (let i = 0; i < total; i++) if (!seats[i]) seats[i] = pool.shift();
   room.game = new Game(seats);
   room.state = 'playing';
   room.hover = null;
   room.log = [];
-  addLog(room, `試合開始！ ${seats.length}人で対戦（ペア${room.game.startPairs}組を最初に捨てました）`);
+  addLog(room, `試合開始！ ${seats.length}人で対戦（トランプ${room.game.decks}組＋ジョーカー＝${room.game.totalCards}枚／${room.settings.seatMode === 'choose' ? '席は各自選択' : '席はランダム'}）`);
+  addLog(room, `最初にペア${room.game.startPairs}組を捨てました`);
   for (const pid of room.game.initialOuts) {
     addLog(room, `${room.game.seats.find((s) => s.pid === pid).name} は配った時点で手札がなくなり脱落`);
   }
@@ -377,7 +399,7 @@ function joinRoom(conn, room, name, rejoinOnly) {
   const m = {
     clientId: conn.clientId, pid: 'm' + (++room.pidSeq), name: cleanName(name),
     role: playerCount(room) < MAX_PLAYERS ? 'player' : 'spectator',
-    conn: null, connected: false, discAt: 0, lastEmote: 0, lastShuffle: 0, lastHover: 0,
+    conn: null, connected: false, discAt: 0, seat: null, lastEmote: 0, lastShuffle: 0, lastHover: 0,
   };
   room.members.set(conn.clientId, m);
   if (!room.hostId || !room.members.has(room.hostId)) room.hostId = conn.clientId;
@@ -436,6 +458,18 @@ function onMessage(conn, raw) {
       break;
     }
 
+    case 'seat': {
+      if (room.state !== 'lobby' || room.settings.seatMode !== 'choose' || m.role !== 'player') return;
+      if (msg.n == null) { m.seat = null; broadcastState(room); return; }
+      const n = parseInt(msg.n, 10);
+      if (!(n >= 1 && n <= playerCount(room))) return;
+      const taken = [...room.members.values()].find((x) => x !== m && x.seat === n);
+      if (taken) return err(conn, `${n}番の席は ${taken.name} が選んでいます`);
+      m.seat = n;
+      broadcastState(room);
+      break;
+    }
+
     case 'rename': {
       if (room.state !== 'lobby') return;
       m.name = cleanName(msg.name);
@@ -469,6 +503,7 @@ function onMessage(conn, raw) {
       const tt = parseInt(msg.turnTime, 10);
       if (TURN_TIMES.includes(tt)) room.settings.turnTime = tt;
       if (typeof msg.reveal === 'boolean') room.settings.reveal = msg.reveal;
+      if (msg.seatMode === 'random' || msg.seatMode === 'choose') room.settings.seatMode = msg.seatMode;
       broadcastState(room);
       break;
     }
